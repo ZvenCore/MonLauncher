@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using CmlLib.Core;
 using CmlLib.Core.Auth;
 using CmlLib.Core.ProcessBuilder;
@@ -48,13 +49,23 @@ public class ServerModListResponse
     public List<ServerModItem>? mods { get; set; }
 }
 
+public class LauncherUpdateInfo
+{
+    public string version { get; set; } = "";
+    public string url { get; set; } = "";
+    public string? changelog { get; set; }
+    public bool mandatory { get; set; } = false;
+}
+
 public class LauncherService
 {
     [DllImport("Kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool CreateHardLink(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
 
+    public const string AppVersion = "1.0.0";
     public const string VersionName = "neoforge-21.1.249";
     public const string DefaultSyncUrl = "https://site.moncraft.space";
+    public const string UpdateManifestPath = "/monl/launcher_version.json";
     public const string DiscordUrl = "https://discord.gg/E2Zv9pEwYG";
     public const string TelegramDevUrl = "https://t.me/ZvenCore";
     public const string AdoptiumJava21Url = "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse?project=jdk";
@@ -654,4 +665,162 @@ public class LauncherService
             return false;
         }
     }
+
+    public static void CleanupOldBinary()
+    {
+        try
+        {
+            var currentExe = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(currentExe))
+            {
+                var oldExe = currentExe + ".old";
+                if (File.Exists(oldExe))
+                {
+                    File.Delete(oldExe);
+                }
+            }
+        }
+        catch
+        {
+            // Silently ignore if locked or inaccessible
+        }
+    }
+
+    public async Task<LauncherUpdateInfo?> CheckForUpdatesAsync(string? serverUrl = null)
+    {
+        try
+        {
+            var baseUri = string.IsNullOrWhiteSpace(serverUrl) ? DefaultSyncUrl : serverUrl.TrimEnd('/');
+            var updateUrl = $"{baseUri}{UpdateManifestPath}?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+
+            using var response = await _http.GetAsync(updateUrl);
+            if (!response.IsSuccessStatusCode) return null;
+
+            var json = await response.Content.ReadAsStringAsync();
+            var info = JsonSerializer.Deserialize<LauncherUpdateInfo>(json);
+            if (info == null || string.IsNullOrWhiteSpace(info.version) || string.IsNullOrWhiteSpace(info.url))
+            {
+                return null;
+            }
+
+            if (IsNewerVersion(info.version, AppVersion))
+            {
+                return info;
+            }
+        }
+        catch
+        {
+            // Silently ignore network failures during background update check
+        }
+        return null;
+    }
+
+    public static bool IsNewerVersion(string remoteVersion, string localVersion)
+    {
+        var cleanRemote = remoteVersion.Trim().TrimStart('v', 'V');
+        var cleanLocal = localVersion.Trim().TrimStart('v', 'V');
+
+        if (Version.TryParse(cleanRemote, out var rVer) && Version.TryParse(cleanLocal, out var lVer))
+        {
+            return rVer > lVer;
+        }
+
+        return !string.Equals(cleanRemote, cleanLocal, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public async Task<bool> DownloadAndApplyUpdateAsync(string downloadUrl, Action<int, string>? progress = null)
+    {
+        var currentExe = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(currentExe)) return false;
+
+        var newExe = currentExe + ".new";
+        var oldExe = currentExe + ".old";
+
+        try
+        {
+            progress?.Invoke(5, "Подключение к серверу обновлений...");
+
+            using var response = await _http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+
+            var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+            await using var contentStream = await response.Content.ReadAsStreamAsync();
+            await using var fileStream = new FileStream(newExe, FileMode.Create, FileAccess.Write, FileShare.None);
+
+            var buffer = new byte[81920];
+            long totalRead = 0;
+            int read;
+            var lastReportTime = DateTime.UtcNow;
+
+            while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            {
+                await fileStream.WriteAsync(buffer, 0, read);
+                totalRead += read;
+
+                if ((DateTime.UtcNow - lastReportTime).TotalMilliseconds > 80 || totalRead == totalBytes)
+                {
+                    lastReportTime = DateTime.UtcNow;
+                    if (totalBytes > 0)
+                    {
+                        var pct = (int)((double)totalRead / totalBytes * 100);
+                        var mbRead = (totalRead / (1024.0 * 1024.0)).ToString("0.0");
+                        var mbTotal = (totalBytes / (1024.0 * 1024.0)).ToString("0.0");
+                        progress?.Invoke(Math.Min(99, pct), $"Загрузка обновления: {mbRead} МБ / {mbTotal} МБ ({pct}%)");
+                    }
+                    else
+                    {
+                        var mbRead = (totalRead / (1024.0 * 1024.0)).ToString("0.0");
+                        progress?.Invoke(50, $"Загрузка обновления: {mbRead} МБ...");
+                    }
+                }
+            }
+
+            await fileStream.FlushAsync();
+            fileStream.Close();
+
+            progress?.Invoke(100, "Установка обновления и перезапуск...");
+            await Task.Delay(500);
+
+            // Atomic file swap
+            if (File.Exists(oldExe))
+            {
+                try { File.Delete(oldExe); } catch { }
+            }
+
+            File.Move(currentExe, oldExe);
+            File.Move(newExe, currentExe);
+
+            // Launch updated binary
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = currentExe,
+                WorkingDirectory = Path.GetDirectoryName(currentExe) ?? _baseDir,
+                UseShellExecute = true
+            });
+
+            // Shutdown current old instance
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Application.Current.Shutdown();
+            });
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                if (File.Exists(newExe)) File.Delete(newExe);
+                if (!File.Exists(currentExe) && File.Exists(oldExe))
+                {
+                    File.Move(oldExe, currentExe); // rollback
+                }
+            }
+            catch { }
+
+            progress?.Invoke(-1, $"Ошибка обновления: {ex.Message}");
+            return false;
+        }
+    }
 }
+

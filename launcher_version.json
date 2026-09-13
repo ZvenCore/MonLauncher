@@ -1,0 +1,6 @@
+{
+    "version":  "1.0.0",
+    "url":  "https://site.moncraft.space/monl/MonLauncher.exe",
+    "changelog":  "• Автоматическое обновление лаунчера через VDS\n• Оптимизация синхронизации модов и ресурсов\n• Улучшена стабильность и производительность",
+    "mandatory":  false
+}

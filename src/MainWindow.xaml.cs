@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     {
         try
         {
+            LauncherService.CleanupOldBinary();
             var userDataFolder = Path.Combine(_service.BaseDir, ".webview_cache");
             var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
             await webView.EnsureCoreWebView2Async(env);
@@ -37,6 +38,8 @@ public partial class MainWindow : Window
 
             var html = GenerateHtml();
             webView.NavigateToString(html);
+
+            _ = CheckForUpdatesAsync();
         }
         catch (Exception ex)
         {
@@ -150,6 +153,30 @@ public partial class MainWindow : Window
                     }
                     break;
 
+                case "apply_update":
+                    if (root.TryGetProperty("url", out var updUrlProp))
+                    {
+                        var updUrl = updUrlProp.GetString();
+                        if (!string.IsNullOrEmpty(updUrl))
+                        {
+                            _ = Task.Run(async () =>
+                            {
+                                await _service.DownloadAndApplyUpdateAsync(updUrl, (pct, msg) =>
+                                {
+                                    Dispatcher.Invoke(() =>
+                                    {
+                                        webView.ExecuteScriptAsync($"setUpdateProgress({pct}, '{EscapeJs(msg)}');");
+                                    });
+                                });
+                            });
+                        }
+                    }
+                    break;
+
+                case "check_updates_manual":
+                    _ = CheckForUpdatesAsync(manual: true);
+                    break;
+
                 case "window_minimize":
                     WindowState = WindowState.Minimized;
                     break;
@@ -162,6 +189,35 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             await webView.ExecuteScriptAsync($"alert('Ошибка: {EscapeJs(ex.Message)}');");
+        }
+    }
+
+    private async Task CheckForUpdatesAsync(bool manual = false)
+    {
+        try
+        {
+            if (!manual)
+            {
+                await Task.Delay(1200); // Wait for frontend initialization
+            }
+
+            var update = await _service.CheckForUpdatesAsync(_config.SyncServerUrl);
+            if (update != null)
+            {
+                var json = JsonSerializer.Serialize(update);
+                await webView.ExecuteScriptAsync($"onUpdateAvailable({json});");
+            }
+            else if (manual)
+            {
+                await webView.ExecuteScriptAsync($"showToast('У вас установлена актуальная версия лаунчера (v{LauncherService.AppVersion})!');");
+            }
+        }
+        catch
+        {
+            if (manual)
+            {
+                await webView.ExecuteScriptAsync("showToast('Не удалось связаться с сервером обновлений');");
+            }
         }
     }
 
@@ -230,6 +286,7 @@ public partial class MainWindow : Window
         var quickskinEnabled = _config.QuickSkinEnabled ? "true" : "false";
         var customSkin = _config.CustomSkinBase64 != null ? $"'{EscapeJs(_config.CustomSkinBase64)}'" : "null";
         var modsJson = JsonSerializer.Serialize(_service.GetUserMods());
+        var appVersion = LauncherService.AppVersion;
 
         return $$"""
 <!DOCTYPE html>
@@ -471,6 +528,73 @@ public partial class MainWindow : Window
         .nick-modal-btn-cancel:hover {
             background: rgba(255, 255, 255, 0.08);
             color: #fff;
+        }
+
+        /* ─── UPDATE MODAL POPUP ─── */
+        #modal-update-prompt {
+            position: fixed;
+            inset: 0;
+            background: rgba(7, 9, 13, 0.9);
+            backdrop-filter: blur(14px);
+            z-index: 10001;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #modal-update-prompt.active {
+            display: flex;
+        }
+        .update-modal-box {
+            background: #14181f;
+            border: 1px solid var(--accent-border);
+            border-radius: 24px;
+            padding: 32px 36px;
+            width: 480px;
+            max-width: 92vw;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.9), 0 0 45px var(--accent-glow);
+            animation: modalFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .update-changelog {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-subtle);
+            border-radius: 14px;
+            padding: 14px 16px;
+            color: #d1d5db;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 140px;
+            overflow-y: auto;
+            white-space: pre-line;
+        }
+        .update-progress-wrap {
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+        .update-progress-bar-bg {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.07);
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .update-progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent), #ffb74d);
+            transition: width 0.15s ease;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+        .update-progress-status {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
         }
 
         #launcher-window {
@@ -1410,7 +1534,7 @@ public partial class MainWindow : Window
                                 <span class="profile-badge" id="main-skin-badge">QUICKSKIN</span>
                             </div>
                             <div class="profile-sub">
-                                ОЗУ: <strong id="main-ram-display" style="color: var(--accent-light);">{{ramStr}}</strong> • 101 мод • NeoForge 21.1.249
+                                ОЗУ: <strong id="main-ram-display" style="color: var(--accent-light);">{{ramStr}}</strong> • 101 мод • NeoForge 21.1.249 • v{{appVersion}}
                             </div>
                         </div>
                     </div>
@@ -1559,6 +1683,23 @@ public partial class MainWindow : Window
                             <strong style="color: #fff;">{{totalRam}} ГБ</strong>
                         </div>
                     </div>
+
+                    <div class="settings-card" style="grid-column: 1 / -1;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                            <div>
+                                <div class="settings-section-title" style="margin-bottom: 4px;">
+                                    <span>Версия лаунчера: <strong style="color: var(--accent-light);">v{{appVersion}}</strong></span>
+                                </div>
+                                <div style="font-size: 13px; color: var(--text-muted);">
+                                    Сервер обновлений: <code style="color: var(--accent); background: rgba(229,147,56,0.08); padding: 2px 6px; border-radius: 4px;">site.moncraft.space/monl/</code>
+                                </div>
+                            </div>
+                            <button class="btn-primary" style="padding: 10px 18px; font-size: 13px;" onclick="checkUpdatesManual()">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">sync</span>
+                                <span>Проверить обновления</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -1588,6 +1729,43 @@ public partial class MainWindow : Window
                     <span>Сохранить</span>
                 </button>
                 <button class="nick-modal-btn-cancel" onclick="closeNickModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ДОСТУПНО ОБНОВЛЕНИЕ -->
+    <div id="modal-update-prompt">
+        <div class="nick-modal-box update-modal-box">
+            <div class="nick-modal-top">
+                <div class="nick-modal-icon" style="background: rgba(229, 147, 56, 0.15); border-color: rgba(229, 147, 56, 0.35);">
+                    <span class="material-symbols-rounded" style="color: var(--accent);">system_update</span>
+                </div>
+                <div>
+                    <div class="nick-modal-title">Доступно обновление!</div>
+                    <div class="nick-modal-sub" id="update-modal-ver-text">Новая версия готова к установке</div>
+                </div>
+            </div>
+
+            <div class="update-changelog" id="update-modal-changelog">
+                Загрузка списка изменений...
+            </div>
+
+            <div class="update-progress-wrap" id="update-progress-wrap">
+                <div class="update-progress-status">
+                    <span id="update-status-text">Загрузка обновления...</span>
+                    <span id="update-percent-text">0%</span>
+                </div>
+                <div class="update-progress-bar-bg">
+                    <div class="update-progress-bar-fill" id="update-progress-bar-fill"></div>
+                </div>
+            </div>
+
+            <div class="nick-modal-btns" id="update-modal-btns">
+                <button class="btn-primary nick-modal-btn-save" id="btn-update-confirm" onclick="startUpdateDownload()">
+                    <span class="material-symbols-rounded">download</span>
+                    <span>Обновить сейчас</span>
+                </button>
+                <button class="nick-modal-btn-cancel" id="btn-update-cancel" onclick="closeUpdateModal()">Позже</button>
             </div>
         </div>
     </div>
@@ -2143,6 +2321,71 @@ public partial class MainWindow : Window
                 }, 350);
             }
         });
+
+        // 10. AUTO-UPDATE SYSTEM
+        let pendingUpdateInfo = null;
+
+        function onUpdateAvailable(info) {
+            pendingUpdateInfo = info;
+            const modal = document.getElementById('modal-update-prompt');
+            const verText = document.getElementById('update-modal-ver-text');
+            const changelog = document.getElementById('update-modal-changelog');
+            const cancelBtn = document.getElementById('btn-update-cancel');
+
+            if (verText) verText.textContent = `Доступна версия v${info.version || ''}`;
+            if (changelog) {
+                changelog.textContent = info.changelog || 'Улучшения стабильности и исправления ошибок.';
+            }
+
+            if (info.mandatory && cancelBtn) {
+                cancelBtn.style.display = 'none';
+            } else if (cancelBtn) {
+                cancelBtn.style.display = 'block';
+            }
+
+            // Reset modal progress bar state
+            const pWrap = document.getElementById('update-progress-wrap');
+            const btns = document.getElementById('update-modal-btns');
+            if (pWrap) pWrap.style.display = 'none';
+            if (btns) btns.style.display = 'flex';
+
+            if (modal) modal.classList.add('active');
+        }
+
+        function closeUpdateModal() {
+            const modal = document.getElementById('modal-update-prompt');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function startUpdateDownload() {
+            if (!pendingUpdateInfo) return;
+            const pWrap = document.getElementById('update-progress-wrap');
+            const btns = document.getElementById('update-modal-btns');
+            if (pWrap) pWrap.style.display = 'flex';
+            if (btns) btns.style.display = 'none';
+            setUpdateProgress(0, 'Подключение к серверу...');
+
+            window.chrome.webview.postMessage({
+                action: 'apply_update',
+                url: pendingUpdateInfo.url,
+                version: pendingUpdateInfo.version
+            });
+        }
+
+        function setUpdateProgress(pct, msg) {
+            const fill = document.getElementById('update-progress-bar-fill');
+            const pctText = document.getElementById('update-percent-text');
+            const statusText = document.getElementById('update-status-text');
+
+            if (fill) fill.style.width = pct + '%';
+            if (pctText) pctText.textContent = pct + '%';
+            if (statusText) statusText.textContent = msg;
+        }
+
+        function checkUpdatesManual() {
+            showToast('Проверка обновлений...');
+            window.chrome.webview.postMessage({ action: 'check_updates_manual' });
+        }
     </script>
 </body>
 </html>
