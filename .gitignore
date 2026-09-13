@@ -1,0 +1,31 @@
+﻿# Visual Studio / .NET
+[Bb]in/
+[Oo]bj/
+dist/
+dist_installer/
+.vs/
+
+# Large Archives and Binaries (>100MB blocked by GitHub)
+*.exe
+*.zip
+*.tar.gz
+*.7z
+*.jar
+server-mods/
+user-mods/
+temp_client_pack/
+
+# Local Minecraft test files & caches
+.minecraft/
+.webview_cache/
+__pycache__/
+*.pyc
+
+# Temporary / OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.BIN/
+.DS_Store
+*.user
+*.suo

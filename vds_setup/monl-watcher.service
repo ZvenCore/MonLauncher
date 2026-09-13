@@ -1,0 +1,14 @@
+[Unit]
+Description=MON SERVER Modlist Auto-Updater & Watcher
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/monl
+ExecStart=/usr/bin/python3 /monl/monl_watcher.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

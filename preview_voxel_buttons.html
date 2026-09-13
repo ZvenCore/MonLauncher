@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MON SERVER — Voxel Button Design Preview</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* ─── ТЕМА: ЯНТАРЬ (MON SERVER DEFAULT) ─── */
+            --bg: #090b0e;
+            --bg-subtle: #0f1318;
+            --surface: #14181f;
+            --surface-2: #1b2029;
+            --surface-hover: #1f2631;
+            
+            --line: #222a36;
+            --line-bright: #333f52;
+            
+            --accent: #e59338;
+            --accent-dim: #9b5a1b;
+            --accent-light: #f7ab56;
+            --accent-glow: rgba(229, 147, 56, 0.35);
+            --accent-soft: rgba(229, 147, 56, 0.12);
+            --btn-text-color: #0d0a06;
+
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --text-dim: #64748b;
+            
+            --ok: #46d18a;
+            --bad: #e2574c;
+            
+            --font-sans: 'Plus Jakarta Sans', 'Inter', sans-serif;
+            --font-brand: 'Space Grotesk', sans-serif;
+            --font-pixel: 'Press Start 2P', monospace;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            /* VOXEL CLIP PATHS (КАК В НАЧАЛЬНОМ ФАЙЛЕ) */
+            --voxel-cut-lg: polygon(0 8px, 8px 8px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 8px), 0 calc(100% - 8px));
+            --voxel-cut-btn: polygon(0 6px, 6px 6px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px));
+            --voxel-cut-sm: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));
+            --voxel-card-cut: polygon(0 14px, 14px 14px, 14px 0, calc(100% - 14px) 0, calc(100% - 14px) 14px, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 14px calc(100% - 14px), 0 calc(100% - 12px));
+        }
+
+        /* ТЕМА 2: ИЗУМРУД (ОРИГИНАЛ ИЗ НАЧАЛЬНОГО ФАЙЛА) */
+        body.theme-emerald {
+            --accent: #46d18a;
+            --accent-dim: #2c8f60;
+            --accent-light: #6cf0a8;
+            --accent-glow: rgba(70, 209, 138, 0.35);
+            --accent-soft: rgba(70, 209, 138, 0.12);
+            --btn-text-color: #06140c;
+        }
+
+        /* ТЕМА 3: ОБСИДИАН / НЕОНОВЫЙ КИБЕР */
+        body.theme-cyber {
+            --accent: #38bdf8;
+            --accent-dim: #0284c7;
+            --accent-light: #7dd3fc;
+            --accent-glow: rgba(56, 189, 248, 0.35);
+            --accent-soft: rgba(56, 189, 248, 0.12);
+            --btn-text-color: #04141e;
+        }
+
+        /* ТЕМА 4: АМЕТИСТ */
+        body.theme-amethyst {
+            --accent: #c084fc;
+            --accent-dim: #7e22ce;
+            --accent-light: #e9d5ff;
+            --accent-glow: rgba(192, 132, 252, 0.35);
+            --accent-soft: rgba(192, 132, 252, 0.12);
+            --btn-text-color: #140521;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+            overflow-x: hidden;
+            background-image:
+                repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 32px),
+                repeating-linear-gradient(90deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 32px);
+        }
+
+        .material-symbols-rounded {
+            font-family: 'Material Symbols Rounded';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        /* ─── TOP CONTROL TOOLBAR (ПАРАМЕТРЫ ДИЗАЙНА) ─── */
+        #toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(10, 13, 17, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--line);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .voxel-badge {
+            font-family: var(--font-pixel);
+            font-size: 8px;
+            padding: 4px 8px;
+            background: var(--accent);
+            color: var(--btn-text-color);
+            letter-spacing: 1px;
+            clip-path: var(--voxel-cut-sm);
+            font-weight: 700;
+        }
+
+        .toolbar-title {
+            font-family: var(--font-brand);
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .toolbar-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .theme-selector {
+            display: flex;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            padding: 3px;
+            clip-path: var(--voxel-cut-sm);
+            gap: 4px;
+        }
+
+        .theme-pill {
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+            clip-path: var(--voxel-cut-sm);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .theme-pill:hover { color: #fff; background: rgba(255,255,255,0.06); }
+        .theme-pill.active {
+            background: var(--accent);
+            color: var(--btn-text-color);
+        }
+
+        /* ─── КНОПКИ В СТИЛЕ ИЗ НАЧАЛЬНОГО ФАЙЛА (VOXEL CLIP-PATH) ─── */
+        button, .v-btn {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            outline: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.4, 1), filter 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+            clip-path: var(--voxel-cut-btn);
+            user-select: none;
+            position: relative;
+        }
+
+        button:hover, .v-btn:hover {
+            filter: brightness(1.15);
+            transform: translateY(-2px);
+        }
+
+        button:active, .v-btn:active {
+            transform: translateY(0);
+            filter: brightness(0.95);
+        }
+
+        /* 1. ГЛАВНАЯ КНОПКА PLAY (ТОЧНО КАК В .btn-play) */
+        .btn-play-voxel {
+            background: var(--accent);
+            color: var(--btn-text-color);
+            font-weight: 800;
+            font-family: var(--font-brand);
+            font-size: 1.15rem;
+            letter-spacing: 1px;
+            padding: 16px 36px;
+            clip-path: var(--voxel-cut-lg);
+            box-shadow: 0 0 0 1px var(--accent-dim), 0 8px 24px var(--accent-glow);
+            text-transform: uppercase;
+        }
+        .btn-play-voxel:hover {
+            box-shadow: 0 0 0 1px var(--accent), 0 12px 32px var(--accent-glow);
+        }
+        .btn-play-voxel:disabled {
+            background: #252b34;
+            color: var(--text-dim);
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+            filter: none;
+        }
+
+        /* 2. ВТОРИЧНАЯ КНОПКА (ТОЧНО КАК В .btn-settings) */
+        .btn-settings-voxel {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-main);
+            border: 1px solid var(--line-bright);
+            padding: 14px 28px;
+            font-weight: 600;
+            clip-path: var(--voxel-cut-btn);
+        }
+        .btn-settings-voxel:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        /* 3. КНОПКИ МОДАЛЬНЫХ ОКОН (.modal-btn.save, .modal-btn.cancel) */
+        .modal-btn-voxel {
+            padding: 11px 22px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            clip-path: var(--voxel-cut-sm);
+        }
+        .modal-btn-voxel.save {
+            background: var(--accent);
+            color: var(--btn-text-color);
+            box-shadow: 0 4px 14px var(--accent-glow);
+        }
+        .modal-btn-voxel.cancel {
+            background: var(--surface-2);
+            color: var(--text-dim);
+            border: 1px solid var(--line);
+        }
+        .modal-btn-voxel.cancel:hover {
+            color: var(--text-main);
+            background: var(--surface-hover);
+        }
+
+        /* 4. ССЫЛОЧНЫЕ КНОПКИ (.link-icon) */
+        .link-icon-voxel {
+            text-decoration: none;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--line);
+            padding: 8px 18px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            clip-path: var(--voxel-cut-sm);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+        .link-icon-voxel:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        /* 5. ЧИПЫ И ПРЕСЕТЫ ОЗУ (.preset-btn) */
+        .preset-btn-voxel {
+            padding: 8px 16px;
+            background: var(--surface-2);
+            color: var(--text-muted);
+            border: 1px solid var(--line);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 700;
+            clip-path: var(--voxel-cut-sm);
+            transition: all 0.15s;
+        }
+        .preset-btn-voxel:hover {
+            background: var(--line);
+            color: #fff;
+            border-color: var(--accent);
+        }
+        .preset-btn-voxel.active {
+            background: var(--accent);
+            color: var(--btn-text-color);
+            border-color: var(--accent-dim);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        /* 6. SIDEBAR BUTTONS */
+        .sidebar-btn-voxel {
+            width: 48px;
+            height: 48px;
+            background: var(--surface);
+            color: var(--text-muted);
+            border: 1px solid var(--line);
+            clip-path: var(--voxel-cut-btn);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+        .sidebar-btn-voxel:hover {
+            background: rgba(255,255,255,0.08);
+            color: var(--accent-light);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+        .sidebar-btn-voxel.active {
+            background: var(--accent-soft);
+            color: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 16px var(--accent-soft);
+        }
+
+        /* ─── SHOWCASE CONTAINER ─── */
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 30px 20px 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        /* SECTION: LIVE PLAYGROUND (ВИТРИНА КНОПОК) */
+        .section-box {
+            background: rgba(20, 24, 31, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--line);
+            clip-path: var(--voxel-card-cut);
+            padding: 28px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.5);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--line);
+            padding-bottom: 16px;
+        }
+
+        .section-title {
+            font-family: var(--font-brand);
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .voxel-grid-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .card-sub {
+            background: var(--surface-2);
+            border: 1px solid var(--line);
+            clip-path: var(--voxel-cut-btn);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .card-sub-title {
+            font-size: 11px;
+            font-family: var(--font-pixel);
+            color: var(--accent);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .btn-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        /* ─── FULL LAUNCHER PREVIEW MOCKUP ─── */
+        .launcher-frame {
+            width: 100%;
+            height: 640px;
+            background: var(--bg);
+            border: 1px solid var(--line-bright);
+            clip-path: var(--voxel-card-cut);
+            box-shadow: 0 24px 70px rgba(0,0,0,0.85), 0 0 40px var(--accent-soft);
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .launcher-sidebar {
+            width: 80px;
+            background: var(--bg-subtle);
+            border-right: 1px solid var(--line);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 10px;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .launcher-brand-logo {
+            width: 48px;
+            height: 48px;
+            background: var(--accent);
+            color: var(--btn-text-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            clip-path: var(--voxel-cut-btn);
+            font-weight: 900;
+            font-size: 22px;
+            font-family: var(--font-brand);
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+
+        .launcher-nav-group {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .launcher-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .launcher-header {
+            height: 60px;
+            padding: 0 24px;
+            border-bottom: 1px solid var(--line);
+            background: rgba(15, 19, 24, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .launcher-tab-content {
+            flex: 1;
+            padding: 24px;
+            display: none;
+            overflow-y: auto;
+        }
+        .launcher-tab-content.active {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .hero-block-voxel {
+            background: rgba(20, 24, 31, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--line);
+            clip-path: var(--voxel-card-cut);
+            padding: 36px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-block-voxel::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--accent);
+        }
+
+        .hero-title {
+            font-family: var(--font-brand);
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        .hero-title span {
+            color: var(--accent);
+        }
+
+        .hero-chips {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .hero-chip {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--line);
+            padding: 6px 14px;
+            font-size: 13px;
+            color: var(--text-muted);
+            clip-path: var(--voxel-cut-sm);
+            font-family: var(--font-mono);
+        }
+
+        .action-tray {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        /* ─── MODAL PROMPT MOCKUP ─── */
+        #modal-preview {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 7, 10, 0.88);
+            backdrop-filter: blur(12px);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #modal-preview.active { display: flex; }
+
+        .modal-box-voxel {
+            background: #14181f;
+            border: 1px solid var(--line-bright);
+            clip-path: var(--voxel-card-cut);
+            padding: 34px 38px;
+            width: 440px;
+            max-width: 95vw;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.9), 0 0 35px var(--accent-glow);
+        }
+
+        .modal-input-voxel {
+            width: 100%;
+            height: 48px;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--line);
+            padding: 0 16px;
+            color: #fff;
+            font-size: 15px;
+            clip-path: var(--voxel-cut-sm);
+            outline: none;
+            font-family: var(--font-sans);
+        }
+        .modal-input-voxel:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 14px var(--accent-soft);
+        }
+
+        /* PROGRESS BAR IN VOXEL STYLE */
+        .progress-voxel {
+            width: 100%;
+            height: 12px;
+            background: #1b2029;
+            border: 1px solid var(--line);
+            clip-path: var(--voxel-cut-sm);
+            overflow: hidden;
+            display: none;
+            margin-top: 14px;
+        }
+        .progress-voxel-fill {
+            height: 100%;
+            width: 0%;
+            background: repeating-linear-gradient(45deg, var(--accent) 0 10px, var(--accent-dim) 10px 20px);
+            transition: width 0.3s ease;
+        }
+
+        /* TOAST */
+        #toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--surface);
+            border: 1px solid var(--accent);
+            clip-path: var(--voxel-cut-btn);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.8), 0 0 20px var(--accent-glow);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 10000;
+        }
+        #toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ─── ВЕРХНЯЯ ПАНЕЛЬ УПРАВЛЕНИЯ ДИЗАЙНОМ ─── -->
+    <header id="toolbar">
+        <div class="toolbar-title-wrap">
+            <span class="voxel-badge">VOXEL CLIP-PATH</span>
+            <span class="toolbar-title">Дизайн кнопок из начального файла (HTML Превью)</span>
+        </div>
+
+        <div class="toolbar-controls">
+            <span style="font-size: 12px; color: var(--text-dim);">Цветовая гамма:</span>
+            <div class="theme-selector">
+                <button class="theme-pill active" onclick="setTheme('amber')">
+                    <span style="width: 8px; height: 8px; background: #e59338; display: inline-block;"></span>
+                    <span>Янтарь (Текущая)</span>
+                </button>
+                <button class="theme-pill" onclick="setTheme('emerald')">
+                    <span style="width: 8px; height: 8px; background: #46d18a; display: inline-block;"></span>
+                    <span>Изумруд (Начальный файл)</span>
+                </button>
+                <button class="theme-pill" onclick="setTheme('cyber')">
+                    <span style="width: 8px; height: 8px; background: #38bdf8; display: inline-block;"></span>
+                    <span>Кибер Неон</span>
+                </button>
+                <button class="theme-pill" onclick="setTheme('amethyst')">
+                    <span style="width: 8px; height: 8px; background: #c084fc; display: inline-block;"></span>
+                    <span>Аметист</span>
+                </button>
+            </div>
+
+            <button class="link-icon-voxel" onclick="openNickModal()">
+                <span class="material-symbols-rounded" style="font-size: 16px;">badge</span>
+                <span>Тест окна «Введите никнейм»</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- ─── 1. ВИТРИНА ВСЕХ ТИПОВ КНОПОК ИЗ ФАЙЛА ─── -->
+        <section class="section-box">
+            <div class="section-header">
+                <div class="section-title">
+                    <span class="material-symbols-rounded" style="color: var(--accent);">grid_view</span>
+                    <span>Все типы кнопок с воксельным срезом углов (clip-path polygon)</span>
+                </div>
+                <span style="font-size: 12px; color: var(--text-dim); font-family: var(--font-mono);">
+                    clip-path: polygon(0 6px, 6px 6px, 6px 0, calc(100% - 6px) 0...)
+                </span>
+            </div>
+
+            <div class="voxel-grid-buttons">
+                <!-- Карточка 1: Главная кнопка запуска -->
+                <div class="card-sub">
+                    <span class="card-sub-title">1. Главная кнопка .btn-play</span>
+                    <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+                        Ступенчатый 8px срез, яркий неоновый фон, акцентная тень, при наведении подъем и увеличение яркости.
+                    </p>
+                    <div class="btn-row">
+                        <button class="btn-play-voxel" id="demo-play-btn" onclick="simulatePlayClick()">
+                            <span class="material-symbols-rounded">play_arrow</span>
+                            <span>ИГРАТЬ</span>
+                        </button>
+                        <button class="btn-play-voxel" disabled>
+                            <span class="material-symbols-rounded">lock</span>
+                            <span>НЕДОСТУПНО</span>
+                        </button>
+                    </div>
+                    <div class="progress-voxel" id="demo-progress">
+                        <div class="progress-voxel-fill" id="demo-progress-fill"></div>
+                    </div>
+                </div>
+
+                <!-- Карточка 2: Вторичные кнопки -->
+                <div class="card-sub">
+                    <span class="card-sub-title">2. Вторичная кнопка .btn-settings</span>
+                    <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+                        Ступенчатый 6px срез, полупрозрачный фон с контурной рамкой, при наведении янтарное свечение.
+                    </p>
+                    <div class="btn-row">
+                        <button class="btn-settings-voxel" onclick="showToast('Открыты настройки')">
+                            <span class="material-symbols-rounded" style="font-size: 18px;">settings</span>
+                            <span>Параметры</span>
+                        </button>
+                        <button class="btn-settings-voxel" onclick="showToast('Открыта папка')">
+                            <span class="material-symbols-rounded" style="font-size: 18px;">folder</span>
+                            <span>Папка модов</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Карточка 3: Чипы ОЗУ и пресеты -->
+                <div class="card-sub">
+                    <span class="card-sub-title">3. Чипы и пресеты памяти .preset-btn</span>
+                    <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+                        Микро-срез 4px, активное состояние с подсветкой и тенью.
+                    </p>
+                    <div class="btn-row">
+                        <button class="preset-btn-voxel" onclick="selectChip(this)">2G</button>
+                        <button class="preset-btn-voxel" onclick="selectChip(this)">4G</button>
+                        <button class="preset-btn-voxel active" onclick="selectChip(this)">6G</button>
+                        <button class="preset-btn-voxel" onclick="selectChip(this)">8G</button>
+                        <button class="preset-btn-voxel" onclick="selectChip(this)">12G</button>
+                    </div>
+                </div>
+
+                <!-- Карточка 4: Модальные кнопки -->
+                <div class="card-sub">
+                    <span class="card-sub-title">4. Модальные кнопки .modal-btn</span>
+                    <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+                        Компактные кнопки подтверждения и отмены для всплывающих окон.
+                    </p>
+                    <div class="btn-row">
+                        <button class="modal-btn-voxel save" onclick="showToast('Никнейм подтверждён!')">
+                            <span class="material-symbols-rounded" style="font-size: 16px;">check</span>
+                            <span>Сохранить</span>
+                        </button>
+                        <button class="modal-btn-voxel cancel" onclick="showToast('Действие отменено')">
+                            <span>Отмена</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Карточка 5: Ссылки футера -->
+                <div class="card-sub">
+                    <span class="card-sub-title">5. Ссылки соцсетей .link-icon</span>
+                    <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+                        Ступенчатые ссылки с рамкой и подсветкой при наведении.
+                    </p>
+                    <div class="btn-row">
+                        <a href="https://discord.gg" target="_blank" class="link-icon-voxel">
+                            <span>Discord</span>
+                            <span class="material-symbols-rounded" style="font-size: 14px;">open_in_new</span>
+                        </a>
+                        <a href="https://site.moncraft.space" target="_blank" class="link-icon-voxel">
+                            <span>site.moncraft.space</span>
+                            <span class="material-symbols-rounded" style="font-size: 14px;">open_in_new</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Карточка 6: Иконки сайдбара -->
+                <div class="card-sub">
+                    <span class="card-sub-title">6. Иконки навигации .sidebar-btn</span>
+                    <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+                        Квадратные кнопки сайдбара со срезанными углами.
+                    </p>
+                    <div class="btn-row">
+                        <button class="sidebar-btn-voxel active" title="Главная">
+                            <span class="material-symbols-rounded">dashboard</span>
+                        </button>
+                        <button class="sidebar-btn-voxel" title="Моды">
+                            <span class="material-symbols-rounded">extension</span>
+                        </button>
+                        <button class="sidebar-btn-voxel" title="Скин">
+                            <span class="material-symbols-rounded">face</span>
+                        </button>
+                        <button class="sidebar-btn-voxel" title="Настройки">
+                            <span class="material-symbols-rounded">tune</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ─── 2. ПОЛНОЦЕННЫЙ МАКЕТ ЛАУНЧЕРА С ЭТИМ ДИЗАЙНОМ КНОПОК ─── -->
+        <section class="section-box" style="padding: 0; overflow: hidden;">
+            <div style="padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div class="section-title">
+                        <span class="material-symbols-rounded" style="color: var(--accent);">preview</span>
+                        <span>Полноценный интерфейс лаунчера с новыми кнопками</span>
+                    </div>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                        Кликайте по вкладкам, меняйте ОЗУ, нажимайте «ИГРАТЬ» для тестирования анимаций!
+                    </p>
+                </div>
+                <button class="btn-settings-voxel" style="padding: 8px 16px; font-size: 13px;" onclick="openNickModal()">
+                    <span class="material-symbols-rounded" style="font-size: 16px;">edit</span>
+                    <span>Сменить никнейм</span>
+                </button>
+            </div>
+
+            <!-- ИНТЕРАКТИВНОЕ ОКНО ЛАУНЧЕРА -->
+            <div class="launcher-frame">
+                <!-- САЙДБАР -->
+                <aside class="launcher-sidebar">
+                    <div class="launcher-brand-logo">M</div>
+                    
+                    <div class="launcher-nav-group">
+                        <button class="sidebar-btn-voxel active" id="l-nav-main" onclick="switchLauncherTab('main')">
+                            <span class="material-symbols-rounded">dashboard</span>
+                        </button>
+                        <button class="sidebar-btn-voxel" id="l-nav-mods" onclick="switchLauncherTab('mods')">
+                            <span class="material-symbols-rounded">extension</span>
+                        </button>
+                        <button class="sidebar-btn-voxel" id="l-nav-skin" onclick="switchLauncherTab('skin')">
+                            <span class="material-symbols-rounded">face</span>
+                        </button>
+                        <button class="sidebar-btn-voxel" id="l-nav-settings" onclick="switchLauncherTab('settings')">
+                            <span class="material-symbols-rounded">tune</span>
+                        </button>
+                    </div>
+
+                    <div style="width: 40px; height: 40px; background: #000; clip-path: var(--voxel-cut-sm); border: 1px solid var(--accent); display: flex; align-items: center; justify-content: center;">
+                        <span class="material-symbols-rounded" style="font-size: 20px; color: var(--accent);">person</span>
+                    </div>
+                </aside>
+
+                <!-- ОСНОВНОЕ ТЕЛО -->
+                <div class="launcher-body">
+                    <!-- ХЕДЕР БЕЗ КНОПОК ЗАКРЫТИЯ (КАК ПРОСИЛИ) -->
+                    <div class="launcher-header">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-family: var(--font-brand); font-size: 18px; font-weight: 800;">MON <span style="color: var(--accent);">SERVER</span></span>
+                            <span style="font-family: var(--font-mono); font-size: 11px; background: var(--accent-soft); border: 1px solid var(--accent); color: var(--accent); padding: 2px 8px; clip-path: var(--voxel-cut-sm);">NeoForge 21.1.249</span>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="link-icon-voxel" style="cursor: default;">
+                                <span style="width: 7px; height: 7px; background: var(--ok); clip-path: var(--voxel-cut-sm);"></span>
+                                <strong style="color: var(--accent-light);">moncraft.space</strong>
+                                <span style="color: var(--text-dim);">|</span>
+                                <span style="color: var(--ok); font-weight: 700;">28 ms</span>
+                            </div>
+
+                            <a href="https://site.moncraft.space" target="_blank" class="link-icon-voxel">
+                                <span>site.moncraft.space</span>
+                                <span class="material-symbols-rounded" style="font-size: 14px;">open_in_new</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- ВКЛАДКА 1: ГЛАВНАЯ -->
+                    <div class="launcher-tab-content active" id="l-view-main">
+                        <div class="hero-block-voxel">
+                            <div>
+                                <div style="font-family: var(--font-pixel); font-size: 9px; color: var(--accent); letter-spacing: 2px; margin-bottom: 8px;">
+                                    MON SERVER · CLIENT 1.21.1
+                                </div>
+                                <h1 class="hero-title">ДОБРО ПОЖАЛОВАТЬ, <span id="l-username-display">Player_1</span>!</h1>
+                                <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px;">
+                                    Сборка с 109 модами (Create, Cataclysm, Iron's Spells, QuickSkin и шейдеры).
+                                </p>
+                                <div class="hero-chips">
+                                    <div class="hero-chip">Ник: <span id="l-chip-nick" style="color: #fff;">Player_1</span></div>
+                                    <div class="hero-chip">ОЗУ: <span id="l-chip-ram" style="color: var(--accent);">6.0 ГБ</span></div>
+                                    <div class="hero-chip">Скин: <span style="color: var(--ok);">QUICKSKIN</span></div>
+                                </div>
+                            </div>
+
+                            <div class="action-tray">
+                                <button class="btn-play-voxel" id="l-play-btn" onclick="handleLauncherPlay()">
+                                    <span class="material-symbols-rounded">play_arrow</span>
+                                    <span id="l-play-btn-text">ИГРАТЬ</span>
+                                </button>
+                                <button class="btn-settings-voxel" onclick="switchLauncherTab('settings')">
+                                    <span class="material-symbols-rounded" style="font-size: 18px;">tune</span>
+                                    <span>Настройки</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ПРОГРЕСС ЗАПУСКА -->
+                        <div class="progress-voxel" id="l-launch-progress">
+                            <div class="progress-voxel-fill" id="l-launch-progress-fill"></div>
+                        </div>
+
+                        <!-- КАРТОЧКИ СТАТУСА И МОДОВ -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="card-sub" style="border-radius: 0;">
+                                <span class="card-sub-title">Сервер moncraft.space</span>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                                    <span style="font-size: 14px; color: var(--ok); font-weight: 700;">● СЕРВЕР ОНЛАЙН</span>
+                                    <span style="font-family: var(--font-mono); font-size: 13px; color: var(--text-muted);">Игроков: 0 / 2026</span>
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">
+                                    MOTD: «Открытие урааа»
+                                </div>
+                            </div>
+
+                            <div class="card-sub" style="border-radius: 0;">
+                                <span class="card-sub-title">Автосинхронизация модов</span>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                                    <span style="font-size: 13px; color: #fff;">109 серверных модов (201.7 МБ)</span>
+                                    <button class="link-icon-voxel" style="padding: 4px 10px; font-size: 11px;" onclick="showToast('Все моды актуальны!')">Проверить</button>
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">
+                                    Источник: site.moncraft.space/monl/
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ВКЛАДКА 2: МОДЫ -->
+                    <div class="launcher-tab-content" id="l-view-mods">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h2 style="font-family: var(--font-brand); font-size: 20px;">Управление пользовательскими модами</h2>
+                            <button class="btn-settings-voxel" style="padding: 8px 18px;" onclick="showToast('Папка .minecraft/user-mods открыта')">
+                                <span class="material-symbols-rounded" style="font-size: 18px;">folder_open</span>
+                                <span>Открыть папку</span>
+                            </button>
+                        </div>
+                        <div style="background: var(--surface-2); border: 2px dashed var(--line-bright); clip-path: var(--voxel-card-cut); padding: 40px; text-align: center; color: var(--text-dim);">
+                            <span class="material-symbols-rounded" style="font-size: 44px; color: var(--accent); margin-bottom: 10px;">upload_file</span>
+                            <div style="font-size: 14px; font-weight: 600; color: #fff;">Перетащите сюда дополнительные .jar файлы</div>
+                            <div style="font-size: 12px; margin-top: 4px;">Миникарты, оптимизаторы и клиенсткие аддоны</div>
+                        </div>
+                    </div>
+
+                    <!-- ВКЛАДКА 3: СКИНЫ -->
+                    <div class="launcher-tab-content" id="l-view-skin">
+                        <h2 style="font-family: var(--font-brand); font-size: 20px;">Настройки скина персонажа</h2>
+                        <div class="card-sub">
+                            <span class="card-sub-title">Режим QuickSkin</span>
+                            <p style="font-size: 13px; color: var(--text-muted);">
+                                Загрузите текстуру .png скина, и мод QuickSkin отобразит её на сервере без привязки к лицензии Mojang.
+                            </p>
+                            <div class="btn-row" style="margin-top: 8px;">
+                                <button class="btn-play-voxel" style="font-size: 13px; padding: 10px 20px;" onclick="showToast('Выберите .png файл скина')">
+                                    <span class="material-symbols-rounded">upload</span>
+                                    <span>Загрузить скин (.png)</span>
+                                </button>
+                                <button class="btn-settings-voxel" style="padding: 10px 20px;" onclick="showToast('Скин сброшен')">
+                                    <span>Сбросить на дефолтный</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ВКЛАДКА 4: НАСТРОЙКИ И ОЗУ -->
+                    <div class="launcher-tab-content" id="l-view-settings">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <!-- Левая колонка: Профиль игрока -->
+                            <div class="card-sub">
+                                <span class="card-sub-title">Профиль игрока</span>
+                                <div>
+                                    <label style="display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px;">Никнейм в игре</label>
+                                    <input type="text" id="l-settings-nick" class="modal-input-voxel" value="Player_1" oninput="handleNickInput(this.value)">
+                                    <span style="font-size: 11px; color: var(--text-dim); margin-top: 4px; display: block;">
+                                        Автоматически сохраняется при вводе или смене вкладки
+                                    </span>
+                                </div>
+                                <div style="margin-top: 10px;">
+                                    <button class="btn-play-voxel" style="width: 100%; font-size: 13px; padding: 12px;" onclick="saveSettingsExplicit()">
+                                        <span class="material-symbols-rounded">check</span>
+                                        <span>Сохранить настройки</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Правая колонка: Выделение ОЗУ -->
+                            <div class="card-sub">
+                                <span class="card-sub-title">Выделение оперативной памяти (ОЗУ)</span>
+                                
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-top: 4px;">
+                                    <span style="color: var(--text-dim);">Выделено:</span>
+                                    <strong id="l-ram-label" style="color: var(--accent);">6.0 ГБ (6144 МБ)</strong>
+                                </div>
+
+                                <input type="range" min="2048" max="16384" step="1024" value="6144" style="width: 100%; accent-color: var(--accent); margin: 10px 0;" oninput="updateRamRange(this.value)">
+
+                                <!-- КНОПКИ-ПРЕСЕТЫ ОЗУ В ВОКСЕЛЬНОМ СТИЛЕ -->
+                                <div class="btn-row" style="gap: 8px;">
+                                    <button class="preset-btn-voxel" onclick="setRam(4096)">4G</button>
+                                    <button class="preset-btn-voxel active" onclick="setRam(6144)">6G</button>
+                                    <button class="preset-btn-voxel" onclick="setRam(8192)">8G</button>
+                                    <button class="preset-btn-voxel" onclick="setRam(12288)">12G</button>
+                                </div>
+
+                                <!-- НАДПИСЬ ПО ТРЕБОВАНИЮ ПОЛЬЗОВАТЕЛЯ -->
+                                <div style="margin-top: 10px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line); clip-path: var(--voxel-cut-sm); display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                                    <span class="material-symbols-rounded" style="color: var(--accent); font-size: 18px;">memory</span>
+                                    <span>желательно выделить 4 гб озу</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- ─── МОДАЛЬНОЕ ОКНО «ВВЕДИТЕ НИКНЕЙМ» (ВОКСЕЛЬНЫЙ СТИЛЬ) ─── -->
+    <div id="modal-preview">
+        <div class="modal-box-voxel">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="width: 44px; height: 44px; background: var(--accent-soft); border: 1px solid var(--accent); color: var(--accent); display: flex; align-items: center; justify-content: center; clip-path: var(--voxel-cut-btn);">
+                    <span class="material-symbols-rounded">badge</span>
+                </div>
+                <div>
+                    <h3 style="font-family: var(--font-brand); font-size: 18px; font-weight: 800; color: #fff;">Введите никнейм</h3>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Укажите ваш игровой никнейм для игры на сервере</p>
+                </div>
+            </div>
+
+            <div>
+                <input type="text" id="modal-nick-input-box" class="modal-input-voxel" placeholder="Например: MonHero" maxlength="16" onkeydown="if(event.key==='Enter') confirmModalNick()">
+                <div style="font-size: 11px; color: var(--text-dim); margin-top: 6px; font-family: var(--font-mono);">
+                    Латинские буквы, цифры и символ _ (до 16 симв.)
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 6px;">
+                <button class="modal-btn-voxel save" style="flex: 1;" onclick="confirmModalNick()">
+                    <span class="material-symbols-rounded" style="font-size: 16px;">check</span>
+                    <span>Сохранить</span>
+                </button>
+                <button class="modal-btn-voxel cancel" onclick="closeNickModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ВСПЛЫВАЮЩИЙ ТОАСТ -->
+    <div id="toast">
+        <span class="material-symbols-rounded" style="color: var(--accent); font-size: 18px;">check_circle</span>
+        <span id="toast-text">Настройки сохранены!</span>
+    </div>
+
+    <script>
+        let currentTheme = 'amber';
+        let currentRamVal = 6144;
+        let currentNick = 'Player_1';
+
+        function setTheme(theme) {
+            document.body.className = '';
+            if (theme !== 'amber') {
+                document.body.classList.add('theme-' + theme);
+            }
+            document.querySelectorAll('.theme-pill').forEach(btn => btn.classList.remove('active'));
+            const targetBtn = Array.from(document.querySelectorAll('.theme-pill')).find(b => b.textContent.toLowerCase().includes(
+                theme === 'amber' ? 'янтарь' : (theme === 'emerald' ? 'изумруд' : (theme === 'cyber' ? 'кибер' : 'аметист'))
+            ));
+            if (targetBtn) targetBtn.classList.add('active');
+            showToast(`Активирована тема: ${theme.toUpperCase()}`);
+        }
+
+        function switchLauncherTab(tab) {
+            document.querySelectorAll('.launcher-tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.launcher-sidebar .sidebar-btn-voxel').forEach(b => b.classList.remove('active'));
+            
+            const targetView = document.getElementById('l-view-' + tab);
+            const targetBtn = document.getElementById('l-nav-' + tab);
+            if (targetView) targetView.classList.add('active');
+            if (targetBtn) targetBtn.classList.add('active');
+            showToast(`Вкладка: ${tab.toUpperCase()}`);
+        }
+
+        function updateRamRange(val) {
+            currentRamVal = parseInt(val);
+            const gb = (currentRamVal / 1024).toFixed(1);
+            const formatted = (currentRamVal % 1024 === 0) ? (currentRamVal / 1024) + " ГБ" : gb + " ГБ";
+            document.getElementById('l-ram-label').textContent = `${formatted} (${currentRamVal} МБ)`;
+            document.getElementById('l-chip-ram').textContent = formatted;
+        }
+
+        function setRam(mb) {
+            document.querySelector('input[type=range]').value = mb;
+            updateRamRange(mb);
+            document.querySelectorAll('.preset-btn-voxel').forEach(b => {
+                if (b.textContent === (mb / 1024) + 'G') b.classList.add('active');
+                else b.classList.remove('active');
+            });
+            showToast(`ОЗУ установлено: ${mb / 1024} ГБ (автосохранено)`);
+        }
+
+        function selectChip(el) {
+            document.querySelectorAll('.card-sub .preset-btn-voxel').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+            showToast(`Выбран пресет: ${el.textContent}`);
+        }
+
+        function handleNickInput(val) {
+            currentNick = val.trim() || 'Player_1';
+            document.getElementById('l-username-display').textContent = currentNick;
+            document.getElementById('l-chip-nick').textContent = currentNick;
+        }
+
+        function openNickModal() {
+            const modal = document.getElementById('modal-preview');
+            const input = document.getElementById('modal-nick-input-box');
+            input.value = (currentNick === 'Player_1' || currentNick.toLowerCase() === 'player') ? '' : currentNick;
+            modal.classList.add('active');
+            setTimeout(() => input.focus(), 60);
+        }
+
+        function closeNickModal() {
+            document.getElementById('modal-preview').classList.remove('active');
+        }
+
+        function confirmModalNick() {
+            const input = document.getElementById('modal-nick-input-box');
+            const nick = input.value.trim();
+            if (!nick || nick === 'Player_1' || nick.toLowerCase() === 'player') {
+                showToast('Пожалуйста, введите корректный никнейм!');
+                input.focus();
+                return;
+            }
+            currentNick = nick;
+            document.getElementById('l-settings-nick').value = nick;
+            handleNickInput(nick);
+            closeNickModal();
+            showToast(`Никнейм сохранен: ${nick}`);
+        }
+
+        function saveSettingsExplicit() {
+            showToast('Настройки успешно сохранены!');
+        }
+
+        function handleLauncherPlay() {
+            if (currentNick === 'Player_1' || currentNick.toLowerCase() === 'player' || !currentNick) {
+                openNickModal();
+                return;
+            }
+            simulateLaunch(document.getElementById('l-play-btn'), document.getElementById('l-play-btn-text'), document.getElementById('l-launch-progress'), document.getElementById('l-launch-progress-fill'));
+        }
+
+        function simulatePlayClick() {
+            simulateLaunch(document.getElementById('demo-play-btn'), document.querySelector('#demo-play-btn span:last-child'), document.getElementById('demo-progress'), document.getElementById('demo-progress-fill'));
+        }
+
+        function simulateLaunch(btn, btnText, progContainer, progFill) {
+            btn.disabled = true;
+            progContainer.style.display = 'block';
+            progFill.style.width = '0%';
+            btnText.textContent = 'ПРОВЕРКА...';
+
+            let pct = 0;
+            const timer = setInterval(() => {
+                pct += 15;
+                if (pct > 100) pct = 100;
+                progFill.style.width = pct + '%';
+                if (pct >= 40 && pct < 80) btnText.textContent = 'СИНХРОНИЗАЦИЯ...';
+                if (pct >= 80 && pct < 100) btnText.textContent = 'ЗАПУСК MINECRAFT...';
+                if (pct >= 100) {
+                    clearInterval(timer);
+                    btnText.textContent = 'ЗАПУЩЕНО!';
+                    showToast('Minecraft успешно запущен!');
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btnText.textContent = 'ИГРАТЬ';
+                        progContainer.style.display = 'none';
+                        progFill.style.width = '0%';
+                    }, 2400);
+                }
+            }, 250);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2400);
+        }
+    </script>
+</body>
+</html>

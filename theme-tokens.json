@@ -1,0 +1,45 @@
+{
+  "theme": "Modern Dark Tech Minimalist",
+  "project": "MON SERVER",
+  "domains": {
+    "server": "moncraft.space",
+    "website": "site.moncraft.space"
+  },
+  "colors": {
+    "background": {
+      "main": "#090b0e",
+      "subtle": "#0f1318",
+      "surface": "#14181f",
+      "surfaceHover": "#1a2029"
+    },
+    "borders": {
+      "default": "#222933",
+      "subtle": "#191f27"
+    },
+    "accent": {
+      "primary": "#e59338",
+      "light": "#f7ab56",
+      "copper": "#c9702f",
+      "glowSoft": "rgba(229, 147, 56, 0.1)",
+      "borderGlow": "rgba(229, 147, 56, 0.24)"
+    },
+    "text": {
+      "main": "#f3f4f6",
+      "muted": "#9ca3af",
+      "dim": "#64748b"
+    }
+  },
+  "backgroundEffects": {
+    "cubes": {
+      "total": 14,
+      "layers": 5,
+      "color": "#e59338",
+      "fill": "rgba(229, 147, 56, 0.03)"
+    },
+    "constellation": {
+      "nodeColor": "#e59338",
+      "lineColor": "rgba(229, 147, 56, alpha)",
+      "magneticRadius": "230px"
+    }
+  }
+}
