@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Net.Http;
 using Microsoft.Web.WebView2.Core;
 
 namespace MonInstaller;
@@ -238,45 +239,109 @@ public partial class InstallerWindow : Window
                 var minecraftDir = Path.Combine(_targetDirectory, ".minecraft");
                 if (!Directory.Exists(minecraftDir)) Directory.CreateDirectory(minecraftDir);
 
-                // Step 2: Extract MonLauncher.exe
-                UpdateProgress(25, "Извлечение ядра лаунчера (MonLauncher.exe)...", 2);
+                // Step 2: Install MonLauncher.exe (Latest online from VDS, or fallback to embedded)
+                UpdateProgress(20, "Проверка актуальной версии лаунчера...", 2);
                 await Task.Delay(200);
 
-                var assembly = Assembly.GetExecutingAssembly();
-                var resourceNames = assembly.GetManifestResourceNames();
-                var launcherRes = resourceNames.FirstOrDefault(r => r.EndsWith("MonLauncher.exe", StringComparison.OrdinalIgnoreCase));
+                var destExePath = Path.Combine(_targetDirectory, "MonLauncher.exe");
+                bool downloadedOnline = false;
 
-                if (string.IsNullOrEmpty(launcherRes))
+                try
                 {
-                    throw new FileNotFoundException("Встроенный ресурс лаунчера (MonLauncher.exe) не найден внутри установщика.");
+                    using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+                    httpClient.DefaultRequestHeaders.Add("User-Agent", "MonInstaller");
+
+                    var manifestUrl = "https://site.moncraft.space/monl/launcher_version.json?_t=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                    var resp = await httpClient.GetAsync(manifestUrl);
+
+                    if (resp.IsSuccessStatusCode)
+                    {
+                        var jsonStr = await resp.Content.ReadAsStringAsync();
+                        using var doc = JsonDocument.Parse(jsonStr);
+                        string downloadUrl = "https://site.moncraft.space/monl/MonLauncher.exe";
+
+                        if (doc.RootElement.TryGetProperty("url", out var urlProp) && !string.IsNullOrWhiteSpace(urlProp.GetString()))
+                        {
+                            downloadUrl = urlProp.GetString()!;
+                        }
+
+                        UpdateProgress(25, "Загрузка последней версии MonLauncher.exe...", 2);
+
+                        using var fileResp = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+                        if (fileResp.IsSuccessStatusCode)
+                        {
+                            var totalBytes = fileResp.Content.Headers.ContentLength ?? (35L * 1024 * 1024);
+                            using var remoteStream = await fileResp.Content.ReadAsStreamAsync();
+                            using var fileStream = new FileStream(destExePath, FileMode.Create, FileAccess.Write, FileShare.None);
+
+                            var buffer = new byte[128 * 1024];
+                            long copiedBytes = 0;
+                            int read;
+                            int lastPct = 25;
+
+                            while ((read = await remoteStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                            {
+                                await fileStream.WriteAsync(buffer, 0, read);
+                                copiedBytes += read;
+
+                                int currentPct = 25 + (int)((copiedBytes * 50) / totalBytes);
+                                if (currentPct > 75) currentPct = 75;
+                                if (currentPct > lastPct + 2 || copiedBytes == totalBytes)
+                                {
+                                    lastPct = currentPct;
+                                    var mbDone = copiedBytes / (1024.0 * 1024.0);
+                                    var mbTotal = totalBytes / (1024.0 * 1024.0);
+                                    UpdateProgress(currentPct, $"Загрузка MonLauncher.exe ({mbDone:0.0} / {mbTotal:0.0} МБ)...", 2);
+                                }
+                            }
+
+                            downloadedOnline = true;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback to embedded resource if offline or server unreachable
+                    downloadedOnline = false;
                 }
 
-                var destExePath = Path.Combine(_targetDirectory, "MonLauncher.exe");
-
-                using (var resStream = assembly.GetManifestResourceStream(launcherRes))
+                if (!downloadedOnline)
                 {
-                    if (resStream == null) throw new InvalidOperationException("Не удалось открыть поток ресурса MonLauncher.exe");
+                    UpdateProgress(25, "Извлечение ядра лаунчера (MonLauncher.exe)...", 2);
+                    var assembly = Assembly.GetExecutingAssembly();
+                    var resourceNames = assembly.GetManifestResourceNames();
+                    var launcherRes = resourceNames.FirstOrDefault(r => r.EndsWith("MonLauncher.exe", StringComparison.OrdinalIgnoreCase));
 
-                    long totalBytes = resStream.Length;
-                    long copiedBytes = 0;
-                    byte[] buffer = new byte[128 * 1024];
-
-                    using (var fileStream = new FileStream(destExePath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    if (string.IsNullOrEmpty(launcherRes))
                     {
-                        int read;
-                        int lastPct = 25;
-                        while ((read = resStream.Read(buffer, 0, buffer.Length)) > 0)
-                        {
-                            fileStream.Write(buffer, 0, read);
-                            copiedBytes += read;
+                        throw new FileNotFoundException("Встроенный ресурс лаунчера (MonLauncher.exe) не найден внутри установщика.");
+                    }
 
-                            int currentPct = 25 + (int)((copiedBytes * 50) / totalBytes);
-                            if (currentPct > lastPct + 2 || copiedBytes == totalBytes)
+                    using (var resStream = assembly.GetManifestResourceStream(launcherRes))
+                    {
+                        if (resStream == null) throw new InvalidOperationException("Не удалось открыть поток ресурса MonLauncher.exe");
+
+                        long totalBytes = resStream.Length;
+                        long copiedBytes = 0;
+                        byte[] buffer = new byte[128 * 1024];
+
+                        using (var fileStream = new FileStream(destExePath, FileMode.Create, FileAccess.Write, FileShare.None))
+                        {
+                            int read;
+                            int lastPct = 25;
+                            while ((read = resStream.Read(buffer, 0, buffer.Length)) > 0)
                             {
-                                lastPct = currentPct;
-                                var mbDone = copiedBytes / (1024.0 * 1024.0);
-                                var mbTotal = totalBytes / (1024.0 * 1024.0);
-                                UpdateProgress(currentPct, $"Распаковка MonLauncher.exe ({mbDone:0.0} / {mbTotal:0.0} МБ)...", 2);
+                                fileStream.Write(buffer, 0, read);
+                                copiedBytes += read;
+
+                                int currentPct = 25 + (int)((copiedBytes * 50) / totalBytes);
+                                if (currentPct > lastPct + 2 || copiedBytes == totalBytes)
+                                {
+                                    lastPct = currentPct;
+                                    var mbDone = copiedBytes / (1024.0 * 1024.0);
+                                    var mbTotal = totalBytes / (1024.0 * 1024.0);
+                                    UpdateProgress(currentPct, $"Распаковка MonLauncher.exe ({mbDone:0.0} / {mbTotal:0.0} МБ)...", 2);
+                                }
                             }
                         }
                     }
