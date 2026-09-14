@@ -90,7 +90,7 @@ public class LauncherService
     [DllImport("Kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool CreateHardLink(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
 
-    public const string AppVersion = "1.0.0";
+    public const string AppVersion = "1.0.4";
     public const string VersionName = "neoforge-21.1.249";
     public const string DefaultSyncUrl = "https://site.moncraft.space";
     public const string UpdateManifestPath = "/monl/launcher_version.json";
