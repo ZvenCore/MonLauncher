@@ -1,4 +1,4 @@
-﻿# Visual Studio / .NET
+# Visual Studio / .NET
 [Bb]in/
 [Oo]bj/
 dist/
@@ -29,3 +29,7 @@ Desktop.ini
 .DS_Store
 *.user
 *.suo
+*.tmp
+.env
+.env.example
+server*.properties

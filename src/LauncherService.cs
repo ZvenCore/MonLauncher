@@ -33,6 +33,34 @@ public class ModFileInfo
     public long SizeBytes { get; set; }
 }
 
+public class ShaderFileInfo
+{
+    public string Name { get; set; } = "";
+    public string SizeFormatted { get; set; } = "";
+    public long SizeBytes { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class ShaderConfigResponse
+{
+    public bool ShadersEnabled { get; set; } = true;
+    public string ActiveShader { get; set; } = "";
+    public List<ShaderFileInfo> Shaders { get; set; } = new();
+}
+
+public class ResourcePackFileInfo
+{
+    public string Name { get; set; } = "";
+    public string SizeFormatted { get; set; } = "";
+    public long SizeBytes { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class ResourcePacksConfigResponse
+{
+    public List<ResourcePackFileInfo> Packs { get; set; } = new();
+}
+
 public class ServerModItem
 {
     public string name { get; set; } = "";
@@ -77,6 +105,10 @@ public class LauncherService
     private readonly string _userModsDir;
     private readonly string _gameModsDir;
     private readonly string _javaPortableDir;
+    private readonly string _shaderpacksDir;
+    private readonly string _irisConfigFile;
+    private readonly string _resourcePacksDir;
+    private readonly string _minecraftOptionsFile;
     private readonly HttpClient _http;
 
     public LauncherService()
@@ -88,6 +120,10 @@ public class LauncherService
         _userModsDir = Path.Combine(_baseDir, "user-mods");
         _gameModsDir = Path.Combine(_minecraftDir, "mods");
         _javaPortableDir = Path.Combine(_baseDir, "java");
+        _shaderpacksDir = Path.Combine(_minecraftDir, "shaderpacks");
+        _irisConfigFile = Path.Combine(_minecraftDir, "config", "iris.properties");
+        _resourcePacksDir = Path.Combine(_minecraftDir, "resourcepacks");
+        _minecraftOptionsFile = Path.Combine(_minecraftDir, "options.txt");
 
         _http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) MonLauncher/2.0");
@@ -95,11 +131,15 @@ public class LauncherService
         Directory.CreateDirectory(_serverModsDir);
         Directory.CreateDirectory(_userModsDir);
         Directory.CreateDirectory(_gameModsDir);
+        Directory.CreateDirectory(_shaderpacksDir);
+        Directory.CreateDirectory(_resourcePacksDir);
     }
 
     public string BaseDir => _baseDir;
     public string MinecraftDir => _minecraftDir;
     public string UserModsDir => _userModsDir;
+    public string ShaderpacksDir => _shaderpacksDir;
+    public string ResourcePacksDir => _resourcePacksDir;
 
     public List<ModFileInfo> GetUserMods()
     {
@@ -147,6 +187,377 @@ public class LauncherService
         if (!cleanName.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) return;
         var path = Path.Combine(_userModsDir, cleanName);
         File.WriteAllBytes(path, data);
+    }
+
+    public ShaderConfigResponse GetShadersConfig()
+    {
+        var response = new ShaderConfigResponse();
+        var (enabled, activeShader) = ReadIrisConfig();
+        response.ShadersEnabled = enabled;
+        response.ActiveShader = activeShader;
+
+        if (!Directory.Exists(_shaderpacksDir))
+            return response;
+
+        var list = new List<ShaderFileInfo>();
+
+        foreach (var file in Directory.EnumerateFiles(_shaderpacksDir, "*.zip"))
+        {
+            try
+            {
+                var fi = new FileInfo(file);
+                double mb = fi.Length / (1024.0 * 1024.0);
+                var sizeStr = mb >= 1.0 ? $"{mb:0.00} МБ" : $"{Math.Max(1, fi.Length / 1024.0):0} КБ";
+                list.Add(new ShaderFileInfo
+                {
+                    Name = fi.Name,
+                    SizeBytes = fi.Length,
+                    SizeFormatted = sizeStr,
+                    IsActive = enabled && string.Equals(fi.Name, activeShader, StringComparison.OrdinalIgnoreCase)
+                });
+            }
+            catch { }
+        }
+
+        foreach (var dir in Directory.EnumerateDirectories(_shaderpacksDir))
+        {
+            try
+            {
+                var di = new DirectoryInfo(dir);
+                long totalBytes = 0;
+                try
+                {
+                    totalBytes = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length);
+                }
+                catch { }
+                double mb = totalBytes / (1024.0 * 1024.0);
+                var sizeStr = mb >= 1.0 ? $"{mb:0.00} МБ" : $"{Math.Max(1, totalBytes / 1024.0):0} КБ";
+                list.Add(new ShaderFileInfo
+                {
+                    Name = di.Name,
+                    SizeBytes = totalBytes,
+                    SizeFormatted = sizeStr,
+                    IsActive = enabled && string.Equals(di.Name, activeShader, StringComparison.OrdinalIgnoreCase)
+                });
+            }
+            catch { }
+        }
+
+        response.Shaders = list.OrderBy(s => s.Name).ToList();
+        return response;
+    }
+
+    public (bool enabled, string activeShader) ReadIrisConfig()
+    {
+        bool enabled = true;
+        string activeShader = "";
+        try
+        {
+            if (File.Exists(_irisConfigFile))
+            {
+                var lines = File.ReadAllLines(_irisConfigFile);
+                foreach (var rawLine in lines)
+                {
+                    var line = rawLine.Trim();
+                    if (line.StartsWith("#") || !line.Contains('=')) continue;
+                    var parts = line.Split('=', 2);
+                    var key = parts[0].Trim();
+                    var val = parts[1].Trim();
+                    if (key.Equals("enableShaders", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (bool.TryParse(val, out var b)) enabled = b;
+                    }
+                    else if (key.Equals("shaderPack", StringComparison.OrdinalIgnoreCase))
+                    {
+                        activeShader = val;
+                    }
+                }
+            }
+        }
+        catch { }
+        return (enabled, activeShader);
+    }
+
+    public void SetActiveShader(string? shaderName, bool enableShaders)
+    {
+        try
+        {
+            var configDir = Path.GetDirectoryName(_irisConfigFile);
+            if (!string.IsNullOrEmpty(configDir)) Directory.CreateDirectory(configDir);
+
+            var lines = new List<string>();
+            bool hasEnableShaders = false;
+            bool hasShaderPack = false;
+
+            if (File.Exists(_irisConfigFile))
+            {
+                foreach (var line in File.ReadAllLines(_irisConfigFile))
+                {
+                    var trimmed = line.Trim();
+                    if (trimmed.StartsWith("enableShaders=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        lines.Add($"enableShaders={(enableShaders ? "true" : "false")}");
+                        hasEnableShaders = true;
+                    }
+                    else if (trimmed.StartsWith("shaderPack=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        lines.Add($"shaderPack={(shaderName ?? "")}");
+                        hasShaderPack = true;
+                    }
+                    else
+                    {
+                        lines.Add(line);
+                    }
+                }
+            }
+
+            if (!hasEnableShaders)
+            {
+                lines.Add($"enableShaders={(enableShaders ? "true" : "false")}");
+            }
+            if (!hasShaderPack)
+            {
+                lines.Add($"shaderPack={(shaderName ?? "")}");
+            }
+
+            File.WriteAllLines(_irisConfigFile, lines);
+        }
+        catch { }
+    }
+
+    public bool DeleteShader(string fileName)
+    {
+        try
+        {
+            var cleanName = Path.GetFileName(fileName);
+            var path = Path.Combine(_shaderpacksDir, cleanName);
+            bool deleted = false;
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                deleted = true;
+            }
+            else if (Directory.Exists(path))
+            {
+                Directory.Delete(path, true);
+                deleted = true;
+            }
+
+            if (deleted)
+            {
+                var (enabled, activeShader) = ReadIrisConfig();
+                if (string.Equals(activeShader, cleanName, StringComparison.OrdinalIgnoreCase))
+                {
+                    SetActiveShader("", false);
+                }
+                return true;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    public void SaveShader(string fileName, byte[] data)
+    {
+        var cleanName = Path.GetFileName(fileName);
+        if (!cleanName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) return;
+        Directory.CreateDirectory(_shaderpacksDir);
+        var path = Path.Combine(_shaderpacksDir, cleanName);
+        File.WriteAllBytes(path, data);
+    }
+
+    public List<string> GetActiveResourcePacksFromOptions()
+    {
+        var active = new List<string>();
+        try
+        {
+            if (File.Exists(_minecraftOptionsFile))
+            {
+                foreach (var line in File.ReadAllLines(_minecraftOptionsFile))
+                {
+                    var trimmed = line.Trim();
+                    if (trimmed.StartsWith("resourcePacks:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var json = trimmed.Substring("resourcePacks:".Length).Trim();
+                        var parsed = JsonSerializer.Deserialize<List<string>>(json);
+                        if (parsed != null)
+                        {
+                            active = parsed;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        catch { }
+        return active;
+    }
+
+    public void SetActiveResourcePacksInOptions(List<string> packs)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(packs);
+            var lineToWrite = $"resourcePacks:{json}";
+
+            if (File.Exists(_minecraftOptionsFile))
+            {
+                var lines = File.ReadAllLines(_minecraftOptionsFile).ToList();
+                bool found = false;
+                for (int i = 0; i < lines.Count; i++)
+                {
+                    if (lines[i].TrimStart().StartsWith("resourcePacks:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        lines[i] = lineToWrite;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    lines.Add(lineToWrite);
+                }
+                File.WriteAllLines(_minecraftOptionsFile, lines);
+            }
+            else
+            {
+                File.WriteAllLines(_minecraftOptionsFile, new[] { lineToWrite });
+            }
+        }
+        catch { }
+    }
+
+    public void ToggleResourcePack(string packName, bool enable)
+    {
+        var active = GetActiveResourcePacksFromOptions();
+        var entryName = "file/" + packName;
+
+        if (enable)
+        {
+            if (!active.Any(x => string.Equals(x, entryName, StringComparison.OrdinalIgnoreCase)))
+            {
+                active.Add(entryName);
+            }
+        }
+        else
+        {
+            active.RemoveAll(x => string.Equals(x, entryName, StringComparison.OrdinalIgnoreCase) || string.Equals(x, packName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        SetActiveResourcePacksInOptions(active);
+    }
+
+    public ResourcePacksConfigResponse GetResourcePacksConfig()
+    {
+        var response = new ResourcePacksConfigResponse();
+        if (!Directory.Exists(_resourcePacksDir)) return response;
+
+        var activePacks = GetActiveResourcePacksFromOptions();
+        var list = new List<ResourcePackFileInfo>();
+
+        foreach (var file in Directory.EnumerateFiles(_resourcePacksDir, "*.zip"))
+        {
+            try
+            {
+                var fi = new FileInfo(file);
+                double mb = fi.Length / (1024.0 * 1024.0);
+                var sizeStr = mb >= 1.0 ? $"{mb:0.00} МБ" : $"{Math.Max(1, fi.Length / 1024.0):0} КБ";
+                bool isActive = activePacks.Any(p => 
+                    string.Equals(p, "file/" + fi.Name, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(p, fi.Name, StringComparison.OrdinalIgnoreCase));
+                list.Add(new ResourcePackFileInfo
+                {
+                    Name = fi.Name,
+                    SizeBytes = fi.Length,
+                    SizeFormatted = sizeStr,
+                    IsActive = isActive
+                });
+            }
+            catch { }
+        }
+
+        foreach (var dir in Directory.EnumerateDirectories(_resourcePacksDir))
+        {
+            try
+            {
+                var di = new DirectoryInfo(dir);
+                long totalBytes = 0;
+                try
+                {
+                    totalBytes = Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length);
+                }
+                catch { }
+                double mb = totalBytes / (1024.0 * 1024.0);
+                var sizeStr = mb >= 1.0 ? $"{mb:0.00} МБ" : $"{Math.Max(1, totalBytes / 1024.0):0} КБ";
+                bool isActive = activePacks.Any(p => 
+                    string.Equals(p, "file/" + di.Name, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(p, di.Name, StringComparison.OrdinalIgnoreCase));
+                list.Add(new ResourcePackFileInfo
+                {
+                    Name = di.Name,
+                    SizeBytes = totalBytes,
+                    SizeFormatted = sizeStr,
+                    IsActive = isActive
+                });
+            }
+            catch { }
+        }
+
+        response.Packs = list.OrderByDescending(p => p.IsActive).ThenBy(p => p.Name).ToList();
+        return response;
+    }
+
+    public bool DeleteResourcePack(string fileName)
+    {
+        try
+        {
+            var cleanName = Path.GetFileName(fileName);
+            var path = Path.Combine(_resourcePacksDir, cleanName);
+            bool deleted = false;
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                deleted = true;
+            }
+            else if (Directory.Exists(path))
+            {
+                Directory.Delete(path, true);
+                deleted = true;
+            }
+
+            if (deleted)
+            {
+                ToggleResourcePack(cleanName, false);
+                return true;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    public void SaveResourcePack(string fileName, byte[] data)
+    {
+        var cleanName = Path.GetFileName(fileName);
+        if (!cleanName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) return;
+        Directory.CreateDirectory(_resourcePacksDir);
+        var path = Path.Combine(_resourcePacksDir, cleanName);
+        File.WriteAllBytes(path, data);
+    }
+
+    public string DetectZipPackType(byte[] data)
+    {
+        try
+        {
+            using var ms = new MemoryStream(data);
+            using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
+            bool hasShaders = zip.Entries.Any(e => e.FullName.StartsWith("shaders/", StringComparison.OrdinalIgnoreCase) || e.FullName.Contains("/shaders/"));
+            if (hasShaders) return "shaders";
+
+            bool hasMcMeta = zip.Entries.Any(e => e.FullName.Equals("pack.mcmeta", StringComparison.OrdinalIgnoreCase) || e.FullName.EndsWith("/pack.mcmeta", StringComparison.OrdinalIgnoreCase));
+            if (hasMcMeta) return "resourcepacks";
+        }
+        catch { }
+        return "resourcepacks";
     }
 
     private static string ResolveBaseDir()

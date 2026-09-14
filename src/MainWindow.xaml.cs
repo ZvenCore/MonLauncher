@@ -142,6 +142,187 @@ public partial class MainWindow : Window
                     }
                     break;
 
+                case "get_shaders":
+                    await SendShadersListAsync();
+                    break;
+
+                case "install_shader":
+                    if (root.TryGetProperty("fileName", out var sNameProp) && root.TryGetProperty("base64Data", out var sDataProp))
+                    {
+                        var fileName = sNameProp.GetString() ?? "";
+                        var base64 = sDataProp.GetString() ?? "";
+                        if (!string.IsNullOrEmpty(fileName) && !string.IsNullOrEmpty(base64))
+                        {
+                            var commaIdx = base64.IndexOf(',');
+                            if (commaIdx >= 0) base64 = base64.Substring(commaIdx + 1);
+                            var bytes = Convert.FromBase64String(base64);
+                            _service.SaveShader(fileName, bytes);
+                            await SendShadersListAsync();
+                            await webView.ExecuteScriptAsync($"showToast('Шейдер {EscapeJs(fileName)} добавлен!');");
+                        }
+                    }
+                    break;
+
+                case "delete_shader":
+                    if (root.TryGetProperty("fileName", out var delShaderProp))
+                    {
+                        var fileName = delShaderProp.GetString() ?? "";
+                        if (!string.IsNullOrEmpty(fileName))
+                        {
+                            _service.DeleteShader(fileName);
+                            await SendShadersListAsync();
+                            await webView.ExecuteScriptAsync("showToast('Шейдер удален');");
+                        }
+                    }
+                    break;
+
+                case "set_active_shader":
+                    {
+                        string? sName = null;
+                        if (root.TryGetProperty("shaderName", out var actShaderProp))
+                        {
+                            sName = actShaderProp.GetString();
+                        }
+                        bool enableShaders = true;
+                        if (root.TryGetProperty("enableShaders", out var enProp))
+                        {
+                            enableShaders = enProp.GetBoolean();
+                        }
+                        _service.SetActiveShader(sName, enableShaders);
+                        await SendShadersListAsync();
+                        if (enableShaders && !string.IsNullOrEmpty(sName))
+                        {
+                            await webView.ExecuteScriptAsync($"showToast('Шейдер {EscapeJs(sName)} активирован');");
+                        }
+                        else
+                        {
+                            await webView.ExecuteScriptAsync("showToast('Шейдеры отключены');");
+                        }
+                    }
+                    break;
+
+                case "open_shaders_folder":
+                    if (Directory.Exists(_service.ShaderpacksDir))
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "explorer.exe",
+                            Arguments = $"\"{_service.ShaderpacksDir}\"",
+                            UseShellExecute = true
+                        });
+                    }
+                    break;
+
+                case "get_resourcepacks":
+                    await SendResourcePacksListAsync();
+                    break;
+
+                case "install_resourcepack":
+                    if (root.TryGetProperty("fileName", out var rpNameProp) && root.TryGetProperty("base64Data", out var rpDataProp))
+                    {
+                        var fileName = rpNameProp.GetString() ?? "";
+                        var base64 = rpDataProp.GetString() ?? "";
+                        if (!string.IsNullOrEmpty(fileName) && !string.IsNullOrEmpty(base64))
+                        {
+                            var commaIdx = base64.IndexOf(',');
+                            if (commaIdx >= 0) base64 = base64.Substring(commaIdx + 1);
+                            var bytes = Convert.FromBase64String(base64);
+                            _service.SaveResourcePack(fileName, bytes);
+                            await SendResourcePacksListAsync();
+                            await webView.ExecuteScriptAsync($"showToast('Ресурспак {EscapeJs(fileName)} добавлен!');");
+                        }
+                    }
+                    break;
+
+                case "delete_resourcepack":
+                    if (root.TryGetProperty("fileName", out var delRpProp))
+                    {
+                        var fileName = delRpProp.GetString() ?? "";
+                        if (!string.IsNullOrEmpty(fileName))
+                        {
+                            _service.DeleteResourcePack(fileName);
+                            await SendResourcePacksListAsync();
+                            await webView.ExecuteScriptAsync("showToast('Ресурспак удален');");
+                        }
+                    }
+                    break;
+
+                case "toggle_resourcepack":
+                    if (root.TryGetProperty("packName", out var rpToggleProp) && root.TryGetProperty("enable", out var rpEnableProp))
+                    {
+                        var packName = rpToggleProp.GetString() ?? "";
+                        var enable = rpEnableProp.GetBoolean();
+                        if (!string.IsNullOrEmpty(packName))
+                        {
+                            _service.ToggleResourcePack(packName, enable);
+                            await SendResourcePacksListAsync();
+                            var statusStr = enable ? "включен" : "отключен";
+                            await webView.ExecuteScriptAsync($"showToast('Ресурспак {EscapeJs(packName)} {statusStr}');");
+                        }
+                    }
+                    break;
+
+                case "open_resourcepacks_folder":
+                    if (Directory.Exists(_service.ResourcePacksDir))
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "explorer.exe",
+                            Arguments = $"\"{_service.ResourcePacksDir}\"",
+                            UseShellExecute = true
+                        });
+                    }
+                    break;
+
+                case "install_generic_zip":
+                    if (root.TryGetProperty("fileName", out var gzNameProp) && root.TryGetProperty("base64Data", out var gzDataProp))
+                    {
+                        var fileName = gzNameProp.GetString() ?? "";
+                        var base64 = gzDataProp.GetString() ?? "";
+                        string targetType = "";
+                        if (root.TryGetProperty("targetType", out var ttProp))
+                        {
+                            targetType = ttProp.GetString() ?? "";
+                        }
+
+                        if (!string.IsNullOrEmpty(fileName) && !string.IsNullOrEmpty(base64))
+                        {
+                            var commaIdx = base64.IndexOf(',');
+                            if (commaIdx >= 0) base64 = base64.Substring(commaIdx + 1);
+                            var bytes = Convert.FromBase64String(base64);
+
+                            if (targetType == "shaders")
+                            {
+                                _service.SaveShader(fileName, bytes);
+                                await SendShadersListAsync();
+                                await webView.ExecuteScriptAsync($"switchTab('shaders'); showToast('Шейдер {EscapeJs(fileName)} добавлен!');");
+                            }
+                            else if (targetType == "resourcepacks")
+                            {
+                                _service.SaveResourcePack(fileName, bytes);
+                                await SendResourcePacksListAsync();
+                                await webView.ExecuteScriptAsync($"switchTab('resourcepacks'); showToast('Ресурспак {EscapeJs(fileName)} добавлен!');");
+                            }
+                            else
+                            {
+                                var detected = _service.DetectZipPackType(bytes);
+                                if (detected == "shaders")
+                                {
+                                    _service.SaveShader(fileName, bytes);
+                                    await SendShadersListAsync();
+                                    await webView.ExecuteScriptAsync($"switchTab('shaders'); showToast('Шейдер {EscapeJs(fileName)} добавлен!');");
+                                }
+                                else
+                                {
+                                    _service.SaveResourcePack(fileName, bytes);
+                                    await SendResourcePacksListAsync();
+                                    await webView.ExecuteScriptAsync($"switchTab('resourcepacks'); showToast('Ресурспак {EscapeJs(fileName)} добавлен!');");
+                                }
+                            }
+                        }
+                    }
+                    break;
+
                 case "open_link":
                     if (root.TryGetProperty("url", out var urlProp))
                     {
@@ -228,6 +409,20 @@ public partial class MainWindow : Window
         await webView.ExecuteScriptAsync($"renderUserModsList({json});");
     }
 
+    private async Task SendShadersListAsync()
+    {
+        var shaders = _service.GetShadersConfig();
+        var json = JsonSerializer.Serialize(shaders);
+        await webView.ExecuteScriptAsync($"renderShadersList({json});");
+    }
+
+    private async Task SendResourcePacksListAsync()
+    {
+        var packs = _service.GetResourcePacksConfig();
+        var json = JsonSerializer.Serialize(packs);
+        await webView.ExecuteScriptAsync($"renderResourcePacksList({json});");
+    }
+
     private async Task HandlePlayAsync()
     {
         var username = string.IsNullOrWhiteSpace(_config.Username) ? "Player_1" : _config.Username.Trim();
@@ -286,6 +481,8 @@ public partial class MainWindow : Window
         var quickskinEnabled = _config.QuickSkinEnabled ? "true" : "false";
         var customSkin = _config.CustomSkinBase64 != null ? $"'{EscapeJs(_config.CustomSkinBase64)}'" : "null";
         var modsJson = JsonSerializer.Serialize(_service.GetUserMods());
+        var shadersJson = JsonSerializer.Serialize(_service.GetShadersConfig());
+        var resourcepacksJson = JsonSerializer.Serialize(_service.GetResourcePacksConfig());
         var appVersion = LauncherService.AppVersion;
 
         return $$"""
@@ -1107,6 +1304,52 @@ public partial class MainWindow : Window
             transition: all 0.15s;
         }
         .btn-icon-del:hover { color: var(--bad); background: rgba(226, 92, 74, 0.1); }
+        .shader-actions { display: flex; align-items: center; gap: 10px; }
+        .btn-shader-act {
+            background: rgba(229, 147, 56, 0.15);
+            border: 1px solid var(--accent-border);
+            color: var(--accent);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-shader-act:hover {
+            background: var(--accent);
+            color: #000;
+        }
+        .badge-shader-active {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(127, 209, 121, 0.12);
+            border: 1px solid rgba(127, 209, 121, 0.35);
+            color: var(--ok);
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+        }
+        .btn-shader-off {
+            background: rgba(226, 92, 74, 0.1);
+            border: 1px solid rgba(226, 92, 74, 0.25);
+            color: var(--bad);
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-shader-off:hover {
+            background: var(--bad);
+            color: #fff;
+        }
 
         .settings-grid {
             display: grid;
@@ -1403,6 +1646,7 @@ public partial class MainWindow : Window
             <h3 style="font-family: var(--font-brand); font-size: 24px; font-weight: 800; color: #fff;">Перетащите файлы сюда</h3>
             <p style="font-size: 13px; color: #cbd5e1; line-height: 1.5;">
                 • Файлы <strong style="color: var(--accent);">.jar</strong> добавятся в <code>user-mods</code><br>
+                • Файлы <strong style="color: var(--accent);">.zip</strong> добавятся в <code>shaderpacks</code> или <code>resourcepacks</code><br>
                 • Файлы <strong style="color: var(--accent);">.png</strong> установятся как скин <strong>QuickSkin</strong>
             </p>
         </div>
@@ -1424,6 +1668,12 @@ public partial class MainWindow : Window
                     <button id="nav-mods" class="nav-item" onclick="switchTab('mods')" title="Пользовательские моды">
                         <span class="material-symbols-rounded">extension</span>
                         <span class="nav-badge"></span>
+                    </button>
+                    <button id="nav-shaders" class="nav-item" onclick="switchTab('shaders')" title="Шейдерпаки">
+                        <span class="material-symbols-rounded">wb_sunny</span>
+                    </button>
+                    <button id="nav-resourcepacks" class="nav-item" onclick="switchTab('resourcepacks')" title="Ресурспаки">
+                        <span class="material-symbols-rounded">texture</span>
                     </button>
                     <button id="nav-settings" class="nav-item" onclick="switchTab('settings')" title="Настройки">
                         <span class="material-symbols-rounded">settings</span>
@@ -1582,6 +1832,84 @@ public partial class MainWindow : Window
                         <span>ДЕЙСТВИЕ</span>
                     </div>
                     <div id="user-mods-list"></div>
+                </div>
+            </section>
+
+            <!-- TAB: ШЕЙДЕРЫ -->
+            <section id="view-shaders" class="tab-view">
+                <div class="mods-header">
+                    <div>
+                        <h2 class="view-title">
+                            <span class="material-symbols-rounded" style="font-size: 28px; color: var(--accent);">wb_sunny</span>
+                            <span>Шейдерпаки</span>
+                            <span class="header-tag" style="font-size: 11px;">shaderpacks</span>
+                        </h2>
+                        <p class="view-subtitle">Управление шейдерами Iris / Oculus. Перетащите архив .zip или выберите файл.</p>
+                    </div>
+                    <div class="btn-group">
+                        <label class="btn-primary">
+                            <span class="material-symbols-rounded" style="font-size: 18px;">add</span>
+                            <span>Добавить .zip</span>
+                            <input type="file" multiple accept=".zip" onchange="handleShaderFileInput(event)" style="display: none;">
+                        </label>
+                        <button class="btn-secondary" onclick="openShadersFolder()">
+                            <span class="material-symbols-rounded" style="font-size: 18px;">folder_open</span>
+                            <span>Открыть папку</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="dropzone-box" onclick="document.querySelector('#view-shaders input[type=file]').click()">
+                    <span class="material-symbols-rounded" style="font-size: 40px; color: var(--accent);">wb_sunny</span>
+                    <span class="dropzone-title">Перетащите архивы .zip с шейдерами прямо в окно</span>
+                    <span class="dropzone-sub">Шейдеры сохраняются в .minecraft/shaderpacks и применяются при запуске игры</span>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-head">
+                        <span>НАИМЕНОВАНИЕ ШЕЙДЕРА</span>
+                        <span>СТАТУС И ДЕЙСТВИЕ</span>
+                    </div>
+                    <div id="shaders-list"></div>
+                </div>
+            </section>
+
+            <!-- TAB: РЕСУРСПАКИ -->
+            <section id="view-resourcepacks" class="tab-view">
+                <div class="mods-header">
+                    <div>
+                        <h2 class="view-title">
+                            <span class="material-symbols-rounded" style="font-size: 28px; color: var(--accent);">texture</span>
+                            <span>Ресурспаки</span>
+                            <span class="header-tag" style="font-size: 11px;">resourcepacks</span>
+                        </h2>
+                        <p class="view-subtitle">Управление текстурами и ресурспаками игры. Перетащите архив .zip или выберите файл.</p>
+                    </div>
+                    <div class="btn-group">
+                        <label class="btn-primary">
+                            <span class="material-symbols-rounded" style="font-size: 18px;">add</span>
+                            <span>Добавить .zip</span>
+                            <input type="file" multiple accept=".zip" onchange="handleResourcePackFileInput(event)" style="display: none;">
+                        </label>
+                        <button class="btn-secondary" onclick="openResourcePacksFolder()">
+                            <span class="material-symbols-rounded" style="font-size: 18px;">folder_open</span>
+                            <span>Открыть папку</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="dropzone-box" onclick="document.querySelector('#view-resourcepacks input[type=file]').click()">
+                    <span class="material-symbols-rounded" style="font-size: 40px; color: var(--accent);">texture</span>
+                    <span class="dropzone-title">Перетащите архивы .zip с ресурспаками прямо в окно</span>
+                    <span class="dropzone-sub">Текстурпаки сохраняются в .minecraft/resourcepacks и активируются в игре</span>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-head">
+                        <span>НАИМЕНОВАНИЕ РЕСУРСПАКА</span>
+                        <span>СТАТУС И ДЕЙСТВИЕ</span>
+                    </div>
+                    <div id="resourcepacks-list"></div>
                 </div>
             </section>
 
@@ -1893,6 +2221,8 @@ public partial class MainWindow : Window
         let currentSkinImage = null;
         let savedCustomSkin = {{customSkin}};
         let initialUserMods = {{modsJson}};
+        let initialShadersConfig = {{shadersJson}};
+        let initialResourcePacksConfig = {{resourcepacksJson}};
         let currentRamVal = {{ramMb}};
 
         // 1. LIVE SERVER PING
@@ -2088,6 +2418,14 @@ public partial class MainWindow : Window
 
             if (targetView) targetView.classList.add('active');
             if (targetBtn) targetBtn.classList.add('active');
+
+            if (tab === 'shaders') {
+                window.chrome.webview.postMessage({ action: 'get_shaders' });
+            } else if (tab === 'resourcepacks') {
+                window.chrome.webview.postMessage({ action: 'get_resourcepacks' });
+            } else if (tab === 'mods') {
+                window.chrome.webview.postMessage({ action: 'get_user_mods' });
+            }
         }
 
         // 5. RAM SLIDER
@@ -2263,7 +2601,202 @@ public partial class MainWindow : Window
             }
         }
 
-        // 8. GLOBAL DRAG & DROP
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function escapeJsStr(str) {
+            if (!str) return '';
+            return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        }
+
+        // 8. SHADERS RENDERING
+        function renderShadersList(data) {
+            const container = document.getElementById('shaders-list');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const shaders = (data && data.Shaders) ? data.Shaders : [];
+            const isEnabled = data ? !!data.ShadersEnabled : false;
+            const activeShader = data ? (data.ActiveShader || '') : '';
+
+            // Row 0: "Без шейдеров" (Standard graphics / disabled)
+            const offRow = document.createElement('div');
+            offRow.className = 'table-row';
+            const isOffActive = !isEnabled || !activeShader;
+            offRow.innerHTML = `
+                <div class="mod-meta">
+                    <span class="material-symbols-rounded" style="color: ${isOffActive ? 'var(--accent)' : 'var(--text-dim)'}; font-size: 22px;">block</span>
+                    <div>
+                        <span class="mod-name" style="${isOffActive ? 'color: var(--accent);' : ''}">Без шейдеров (Стандартная графика)</span>
+                        <span class="mod-size">Шейдеры отключены в настройках Iris</span>
+                    </div>
+                </div>
+                <div class="shader-actions">
+                    ${isOffActive 
+                        ? `<span class="badge-shader-active"><span class="material-symbols-rounded" style="font-size: 15px;">check_circle</span> АКТИВНО</span>` 
+                        : `<button class="btn-shader-act" onclick="toggleShader('', false)">Отключить шейдеры</button>`
+                    }
+                </div>
+            `;
+            container.appendChild(offRow);
+
+            if (shaders.length === 0) {
+                const emptyNotice = document.createElement('div');
+                emptyNotice.style.cssText = 'padding: 24px; text-align: center; color: var(--text-dim); font-size: 12px; font-family: var(--font-mono); border-top: 1px solid var(--border-subtle);';
+                emptyNotice.textContent = 'В папке shaderpacks пока нет шейдеров. Перетащите архив .zip сюда.';
+                container.appendChild(emptyNotice);
+                return;
+            }
+
+            for (let shader of shaders) {
+                const row = document.createElement('div');
+                row.className = 'table-row';
+                const isActive = isEnabled && (shader.Name.toLowerCase() === activeShader.toLowerCase());
+
+                row.innerHTML = `
+                    <div class="mod-meta">
+                        <span class="material-symbols-rounded" style="color: ${isActive ? 'var(--ok)' : 'var(--accent)'}; font-size: 22px;">wb_sunny</span>
+                        <div>
+                            <span class="mod-name" style="${isActive ? 'color: #fff; font-weight: 800;' : ''}">${escapeHtml(shader.Name)}</span>
+                            <span class="mod-size">Шейдерпак • ${shader.SizeFormatted}</span>
+                        </div>
+                    </div>
+                    <div class="shader-actions">
+                        ${isActive 
+                            ? `<span class="badge-shader-active"><span class="material-symbols-rounded" style="font-size: 15px;">check_circle</span> АКТИВЕН</span>
+                               <button class="btn-shader-off" onclick="toggleShader('', false)" title="Отключить этот шейдер">Отключить</button>`
+                            : `<button class="btn-shader-act" onclick="toggleShader('${escapeJsStr(shader.Name)}', true)">Включить</button>`
+                        }
+                        <button class="btn-icon-del" onclick="deleteShader('${escapeJsStr(shader.Name)}')" title="Удалить шейдер">
+                            <span class="material-symbols-rounded" style="font-size: 20px;">delete</span>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(row);
+            }
+        }
+        renderShadersList(initialShadersConfig);
+
+        function toggleShader(name, enable) {
+            window.chrome.webview.postMessage({
+                action: 'set_active_shader',
+                shaderName: name,
+                enableShaders: enable
+            });
+        }
+
+        function deleteShader(name) {
+            if (confirm(`Удалить шейдер ${name}?`)) {
+                window.chrome.webview.postMessage({ action: 'delete_shader', fileName: name });
+            }
+        }
+
+        function openShadersFolder() {
+            window.chrome.webview.postMessage({ action: 'open_shaders_folder' });
+        }
+
+        function handleShaderFileInput(e) {
+            if (e.target.files && e.target.files.length > 0) {
+                for (let file of e.target.files) {
+                    if (file.name.toLowerCase().endsWith('.zip')) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            window.chrome.webview.postMessage({
+                                action: 'install_shader',
+                                fileName: file.name,
+                                base64Data: event.target.result
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                }
+            }
+        }
+
+        // 9. RESOURCE PACKS RENDERING
+        function renderResourcePacksList(data) {
+            const container = document.getElementById('resourcepacks-list');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const packs = (data && data.Packs) ? data.Packs : [];
+
+            if (packs.length === 0) {
+                const emptyNotice = document.createElement('div');
+                emptyNotice.style.cssText = 'padding: 24px; text-align: center; color: var(--text-dim); font-size: 12px; font-family: var(--font-mono);';
+                emptyNotice.textContent = 'В папке resourcepacks пока нет ресурспаков. Перетащите архив .zip сюда.';
+                container.appendChild(emptyNotice);
+                return;
+            }
+
+            for (let pack of packs) {
+                const row = document.createElement('div');
+                row.className = 'table-row';
+                const isActive = !!pack.IsActive;
+
+                row.innerHTML = `
+                    <div class="mod-meta">
+                        <span class="material-symbols-rounded" style="color: ${isActive ? 'var(--ok)' : 'var(--accent)'}; font-size: 22px;">texture</span>
+                        <div>
+                            <span class="mod-name" style="${isActive ? 'color: #fff; font-weight: 800;' : ''}">${escapeHtml(pack.Name)}</span>
+                            <span class="mod-size">Ресурспак • ${pack.SizeFormatted}</span>
+                        </div>
+                    </div>
+                    <div class="shader-actions">
+                        ${isActive 
+                            ? `<span class="badge-shader-active"><span class="material-symbols-rounded" style="font-size: 15px;">check_circle</span> АКТИВЕН</span>
+                               <button class="btn-shader-off" onclick="toggleResourcePack('${escapeJsStr(pack.Name)}', false)" title="Отключить этот ресурспак">Отключить</button>`
+                            : `<button class="btn-shader-act" onclick="toggleResourcePack('${escapeJsStr(pack.Name)}', true)">Включить</button>`
+                        }
+                        <button class="btn-icon-del" onclick="deleteResourcePack('${escapeJsStr(pack.Name)}')" title="Удалить ресурспак">
+                            <span class="material-symbols-rounded" style="font-size: 20px;">delete</span>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(row);
+            }
+        }
+        renderResourcePacksList(initialResourcePacksConfig);
+
+        function toggleResourcePack(name, enable) {
+            window.chrome.webview.postMessage({
+                action: 'toggle_resourcepack',
+                packName: name,
+                enable: enable
+            });
+        }
+
+        function deleteResourcePack(name) {
+            if (confirm(`Удалить ресурспак ${name}?`)) {
+                window.chrome.webview.postMessage({ action: 'delete_resourcepack', fileName: name });
+            }
+        }
+
+        function openResourcePacksFolder() {
+            window.chrome.webview.postMessage({ action: 'open_resourcepacks_folder' });
+        }
+
+        function handleResourcePackFileInput(e) {
+            if (e.target.files && e.target.files.length > 0) {
+                for (let file of e.target.files) {
+                    if (file.name.toLowerCase().endsWith('.zip')) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            window.chrome.webview.postMessage({
+                                action: 'install_resourcepack',
+                                fileName: file.name,
+                                base64Data: event.target.result
+                            });
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                }
+            }
+        }
+
+        // 10. GLOBAL DRAG & DROP
         const dropOverlay = document.getElementById('drop-overlay');
         let dragCounter = 0;
 
@@ -2294,8 +2827,15 @@ public partial class MainWindow : Window
         });
 
         function processDroppedFiles(files) {
+            const activeTabElem = document.querySelector('.tab-view.active');
+            const activeTabId = activeTabElem ? activeTabElem.id : '';
+            let targetType = 'auto';
+            if (activeTabId === 'view-shaders') targetType = 'shaders';
+            else if (activeTabId === 'view-resourcepacks') targetType = 'resourcepacks';
+
             for (let file of files) {
-                if (file.name.endsWith('.jar')) {
+                const lower = file.name.toLowerCase();
+                if (lower.endsWith('.jar')) {
                     const reader = new FileReader();
                     reader.onload = (event) => {
                         window.chrome.webview.postMessage({
@@ -2306,7 +2846,18 @@ public partial class MainWindow : Window
                     };
                     reader.readAsDataURL(file);
                     switchTab('mods');
-                } else if (file.name.endsWith('.png')) {
+                } else if (lower.endsWith('.zip')) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        window.chrome.webview.postMessage({
+                            action: 'install_generic_zip',
+                            fileName: file.name,
+                            base64Data: event.target.result,
+                            targetType: targetType
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                } else if (lower.endsWith('.png')) {
                     applySkinFile(file);
                 }
             }
